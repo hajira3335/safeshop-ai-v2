@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SafeShop AI · Check a listing before you pay</title>
+<meta name="description" content="Upload a screenshot of an online product listing and see the warning signs of a fake before you buy.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F4F1;
+    --surface: #FFFFFF;
+    --ink: #172033;
+    --muted: #596275;
+    --line: #CFD6CE;
+    --safe: #1D7348;
+    --warn: #9A5B06;
+    --danger: #B3261E;
+    --focus: #2F5BD3;
+    --safe-tint: #E4F1E9;
+    --warn-tint: #FBF0DD;
+    --danger-tint: #FBE6E4;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161F; --surface: #1A202B; --ink: #E8ECF2; --muted: #A3ACBC; --line: #313A49;
+      --safe: #52C48D; --warn: #F0B04A; --danger: #F2776B; --focus: #8AA8FF;
+      --safe-tint: #16301F; --warn-tint: #33280F; --danger-tint: #3A1B19;
+    }
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.55 var(--body);
+  }
+  img { max-width: 100%; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+  .wrap { max-width: 620px; margin: 0 auto; padding: 0 20px; }
+
+  header.top { padding: 18px 0 0; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; font: 800 19px/1 var(--display); text-decoration: none; }
+  .brand svg { width: 24px; height: 24px; }
+
+  .hero { padding: 40px 0 26px; }
+  .hero h1 {
+    font: 800 clamp(36px, 8.5vw, 56px)/1.02 var(--display);
+    letter-spacing: -0.02em; margin: 0 0 14px; max-width: 13ch;
+  }
+  .hero p { margin: 0; color: var(--muted); max-width: 46ch; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+
+  /* Upload */
+  .drop {
+    display: block; position: relative; border: 2px dashed var(--line); border-radius: 14px;
+    padding: 34px 18px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--ink); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .drop strong { display: block; font: 600 20px/1.2 var(--display); margin-bottom: 6px; }
+  .drop span { color: var(--muted); font-size: 15px; }
+  .drop .icon { width: 44px; height: 44px; margin: 0 auto 12px; display: block; }
+
+  .preview { display: none; gap: 14px; align-items: center; }
+  .preview.show { display: flex; }
+  .preview img { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); }
+  .preview .meta { flex: 1; min-width: 0; }
+  .preview .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview .size { color: var(--muted); font-size: 14px; }
+  .link-btn { background: none; border: 0; padding: 4px 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: 15px; cursor: pointer; }
+
+  details.more { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  details.more summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::after { content: "+"; font: 600 22px/1 var(--display); }
+  details.more[open] summary::after { content: "–"; }
+  details.more .hint { color: var(--muted); font-size: 15px; margin: 6px 0 12px; }
+  label.field { display: block; margin-top: 12px; font-weight: 700; font-size: 15px; }
+  label.field input, label.field textarea {
+    display: block; width: 100%; margin-top: 6px; padding: 12px 14px; font: 16px/1.4 var(--body);
+    color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  }
+  label.field textarea { min-height: 90px; resize: vertical; }
+
+  .go {
+    width: 100%; margin-top: 20px; padding: 16px; border: 0; border-radius: 12px; cursor: pointer;
+    background: var(--ink); color: var(--bg); font: 800 19px/1 var(--display);
+  }
+  .go:disabled { opacity: .45; cursor: not-allowed; }
+  .status { margin: 12px 2px 0; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--safe); } .dot.wait { background: var(--warn); } .dot.bad { background: var(--danger); }
+
+  .msg { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--danger-tint); color: var(--ink); border-left: 4px solid var(--danger); display: none; }
+  .msg.show { display: block; }
+
+  /* Loading */
+  .loading { display: none; text-align: center; padding: 34px 10px; }
+  .loading.show { display: block; }
+  .scan { width: 72px; height: 88px; margin: 0 auto 16px; border: 2px solid var(--ink); border-radius: 10px; position: relative; overflow: hidden; }
+  .scan::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--ink); animation: scan 1.6s ease-in-out infinite; }
+  @keyframes scan { 0% { top: 8%; } 50% { top: 88%; } 100% { top: 8%; } }
+  .loading p { margin: 0; font-weight: 700; }
+  .loading small { color: var(--muted); }
+
+  /* Result */
+  .result { display: none; margin-top: 22px; }
+  .result.show { display: block; }
+  .verdict { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .stamp {
+    font: 800 30px/1 var(--display); letter-spacing: 0.02em; text-transform: uppercase;
+    padding: 12px 16px; border: 4px double currentColor; border-radius: 8px; transform: rotate(-4deg);
+    animation: stamp .45s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  @keyframes stamp { from { transform: rotate(-4deg) scale(1.6); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+  .lvl-high .stamp { color: var(--danger); } .lvl-medium .stamp { color: var(--warn); } .lvl-low .stamp { color: var(--safe); }
+  .verdict .score { font-size: 15px; color: var(--muted); }
+  .verdict .score b { font: 800 26px/1 var(--display); color: var(--ink); }
+  .meter { height: 10px; border-radius: 99px; background: linear-gradient(90deg, var(--safe), var(--warn) 50%, var(--danger)); position: relative; margin: 22px 0 6px; }
+  .meter i { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--ink); border-radius: 2px; transform: translateX(-2px); transition: left .6s ease; }
+  .meter-labels { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .summary { margin: 18px 0 0; font-size: 18px; }
+  .confidence { margin: 8px 0 0; font-size: 15px; color: var(--muted); }
+
+  h2 { font: 800 22px/1.2 var(--display); margin: 28px 0 10px; }
+  ul.signals { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  ul.signals li { padding: 12px 14px 12px 16px; border-radius: 12px; border-left: 5px solid var(--line); background: var(--bg); }
+  ul.signals li b { display: block; }
+  ul.signals li span { color: var(--muted); font-size: 15px; }
+  ul.signals li.s-high { border-color: var(--danger); background: var(--danger-tint); }
+  ul.signals li.s-medium { border-color: var(--warn); background: var(--warn-tint); }
+  ul.signals li.s-low { border-color: var(--warn); }
+  ul.signals li.s-good { border-color: var(--safe); background: var(--safe-tint); }
+  ul.signals li.s-info { border-color: var(--muted); }
+
+  dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 16px; }
+  dl.facts dt { color: var(--muted); }
+  dl.facts dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+  ul.tips { margin: 0; padding-left: 20px; } ul.tips li { margin-bottom: 6px; }
+  .disclaimer { margin-top: 22px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+  .again { margin-top: 18px; width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--ink); background: transparent; color: var(--ink); font: 800 17px/1 var(--display); cursor: pointer; }
+
+  .how { padding: 34px 0 10px; }
+  .how ol { margin: 0; padding-left: 22px; } .how li { margin-bottom: 8px; }
+  .how li b { font-weight: 700; }
+  footer { padding: 26px 0 40px; color: var(--muted); font-size: 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stamp, .scan::after { animation: none; } .meter i { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="./" aria-label="SafeShop AI home">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6l-8-3Z" fill="currentColor"/><path d="m8.5 12 2.5 2.5 4.5-5" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      SafeShop AI
+    </a>
+  </header>
+
+  <section class="hero">
+    <h1>Check a listing before you pay.</h1>
+    <p>Upload a screenshot from Meesho, Flipkart, Amazon or Instagram. SafeShop reads it and points out the warning signs of a fake.</p>
+  </section>
+
+  <main>
+    <div class="panel" id="formPanel">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp" aria-label="Choose a screenshot of the listing">
+        <svg class="icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="6" y="9" width="36" height="30" rx="5" stroke="currentColor" stroke-width="3"/><circle cx="17" cy="19" r="3.5" fill="currentColor"/><path d="m9 35 10-10 7 7 5-5 8 8" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>
+        <strong>Add a screenshot of the listing</strong>
+        <span>Tap to choose a photo, drag it here, or paste it</span>
+      </label>
+
+      <div class="preview" id="preview">
+        <img id="previewImg" alt="Your screenshot">
+        <div class="meta">
+          <div class="name" id="previewName"></div>
+          <div class="size" id="previewSize"></div>
+          <button type="button" class="link-btn" id="changeBtn">Change screenshot</button>
+        </div>
+      </div>
+
+      <details class="more">
+        <summary>Add details (optional)</summary>
+        <p class="hint">Only needed if the screenshot doesn't show the name or price clearly.</p>
+        <label class="field">Product name
+          <input id="pname" maxlength="150" placeholder="e.g. Nike Air Force 1" autocomplete="off">
+        </label>
+        <label class="field">Price you'll pay (₹)
+          <input id="pprice" inputmode="decimal" placeholder="e.g. 499" autocomplete="off">
+        </label>
+        <label class="field">Description from the listing
+          <textarea id="pdesc" maxlength="3000" placeholder="Paste what the seller wrote"></textarea>
+        </label>
+      </details>
+
+      <button class="go" id="goBtn" disabled>Check this listing</button>
+      <div class="status" id="status" aria-live="polite"><span class="dot" id="dot"></span><span id="statusText">Connecting to the checker…</span></div>
+      <div class="msg" id="msg" role="alert"></div>
+    </div>
+
+    <div class="loading panel" id="loading" aria-live="polite">
+      <div class="scan" aria-hidden="true"></div>
+      <p id="loadingText">Reading the screenshot</p>
+      <small>This usually takes 10–25 seconds.</small>
+    </div>
+
+    <section class="result panel" id="result" aria-live="polite"></section>
+  </main>
+
+  <section class="how">
+    <h2>How the check works</h2>
+    <ol>
+      <li><b>Reads the screenshot</b> with Google Gemini: brand, price, seller and the listing text.</li>
+      <li><b>Looks for copy words</b> like “first copy”, “7A quality” or “replica”, and misspelled brands like “Adibas”.</li>
+      <li><b>Compares the price</b> with what the genuine product usually costs.</li>
+      <li><b>Checks the seller</b> rating and number of reviews.</li>
+      <li><b>Explains the result</b> so you can decide for yourself.</li>
+    </ol>
+  </section>
+
+  <footer>
+    SafeShop AI is a student project. Results are an estimate from the screenshot, not proof.
+    Screenshots are sent to Google Gemini to be read, so don't upload images that show your address, phone number or payment details.
+  </footer>
+</div>
+
+<script>
+  // ── Your backend address (Hugging Face Space). Change only if it moves. ──
+  const API_URL = "https://hajirakhan-safeshop-ai.hf.space";
+
+  const $ = (id) => document.getElementById(id);
+  const fileInput = $("file"), drop = $("drop"), preview = $("preview"), goBtn = $("goBtn");
+  const msg = $("msg"), loading = $("loading"), result = $("result"), formPanel = $("formPanel");
+  let chosen = null, serverReady = false;
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const inr = (n) => (n == null ? null : "₹" + Math.round(n).toLocaleString("en-IN"));
+
+  function setStatus(kind, text) { $("dot").className = "dot " + kind; $("statusText").textContent = text; }
+  function showError(text) { msg.textContent = text; msg.classList.add("show"); }
+  function clearError() { msg.classList.remove("show"); }
+  function refreshButton() { goBtn.disabled = !chosen; }
+
+  // ── Wake the server (free Spaces sleep when idle) ──
+  async function wake() {
+    const slow = setTimeout(() => setStatus("wait", "The checker is starting up. The first check can take up to a minute."), 2500);
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+        const r = await fetch(API_URL + "/health", { signal: ctrl.signal });
+        clearTimeout(t);
+        if (r.ok) {
+          const h = await r.json();
+          clearTimeout(slow);
+          serverReady = true;
+          if (!h.ai_configured) { setStatus("bad", "The checker is online but its AI key isn't set up yet."); return; }
+          setStatus("ok", "Checker ready"); return;
+        }
+      } catch (e) { /* still waking */ }
+      await new Promise((res) => setTimeout(res, 5000));
+    }
+    clearTimeout(slow);
+    setStatus("bad", "Can't reach the checker right now. You can still try; it may be waking up.");
+  }
+
+  // ── Choosing an image ──
+  async function shrinkIfLarge(file) {
+    if (file.size <= 3 * 1024 * 1024) return file;
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.88));
+    return new File([blob], (file.name || "screenshot").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  }
+
+  async function useFile(file) {
+    clearError();
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { showError("Choose a JPG, PNG or WEBP image of the listing."); return; }
+    try { chosen = await shrinkIfLarge(file); } catch { chosen = file; }
+    $("previewImg").src = URL.createObjectURL(chosen);
+    $("previewName").textContent = file.name || "Pasted screenshot";
+    $("previewSize").textContent = (chosen.size / 1024 / 1024).toFixed(1) + " MB";
+    drop.style.display = "none"; preview.classList.add("show");
+    refreshButton();
+  }
+
+  fileInput.addEventListener("change", () => useFile(fileInput.files[0]));
+  $("changeBtn").addEventListener("click", () => fileInput.click());
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => useFile(e.dataTransfer.files[0]));
+  window.addEventListener("paste", (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (item) useFile(item.getAsFile());
+  });
+
+  // ── Running a check ──
+  const steps = ["Reading the screenshot", "Checking the brand name", "Comparing the price", "Looking for warning signs", "Writing your report"];
+  let stepTimer;
+
+  async function check() {
+    if (!chosen) return;
+    clearError();
+    const fd = new FormData();
+    fd.append("image", chosen, chosen.name || "screenshot.jpg");
+    fd.append("product_name", $("pname").value.trim());
+    fd.append("entered_price", $("pprice").value.trim());
+    fd.append("description", $("pdesc").value.trim());
+
+    formPanel.style.display = "none"; result.classList.remove("show"); loading.classList.add("show");
+    let i = 0; $("loadingText").textContent = steps[0];
+    stepTimer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); $("loadingText").textContent = steps[i]; }, 3500);
+
+    try {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 120000);
+      const r = await fetch(API_URL + "/analyze", { method: "POST", body: fd, signal: ctrl.signal });
+      clearTimeout(t);
+      let data; try { data = await r.json(); } catch { data = null; }
+      if (!r.ok || !data || !data.ok) throw new Error((data && data.message) || `The checker returned an error (${r.status}). Try again in a minute.`);
+      render(data);
+      setStatus("ok", "Checker ready");
+    } catch (e) {
+      formPanel.style.display = "";
+      showError(e.name === "AbortError" ? "The check took too long. The free server may be waking up; try again." :
+                e.message === "Failed to fetch" ? "Couldn't reach the checker. Check your internet connection, or wait a minute while it wakes up." : e.message);
+    } finally {
+      clearInterval(stepTimer); loading.classList.remove("show");
+    }
+  }
+  goBtn.addEventListener("click", check);
+
+  function render(d) {
+    const x = d.extracted || {};
+    const stampText = { high: "Likely fake", medium: "Be careful", low: "Looks okay" }[d.level] || d.verdict;
+    const facts = [
+      ["Product", x.product_name], ["Brand", x.brand], ["Size / pack", x.pack_size],
+      ["Price", inr(x.listed_price)], ["MRP shown", inr(x.mrp)],
+      ["Discount", x.discount_percent != null ? Math.round(x.discount_percent) + "%" : null],
+      ["Usual price", d.reference_price ? `${inr(d.reference_price.value)} (${d.reference_price.source})` : null],
+      ["Platform", x.platform], ["Seller", x.seller_name],
+      ["Seller rating", x.seller_rating != null ? x.seller_rating + " / 5" : null],
+      ["Ratings", x.rating_count != null ? x.rating_count.toLocaleString("en-IN") : null],
+    ].filter(([, v]) => v != null && v !== "");
+
+    result.className = "result panel show lvl-" + d.level;
+    result.innerHTML = `
+      <div class="verdict">
+        <div class="stamp">${esc(stampText)}</div>
+        <div class="score">Risk score<br><b>${esc(d.risk_score)}</b> / 100</div>
+      </div>
+      <div class="meter" aria-hidden="true"><i style="left:${Math.max(0, Math.min(100, d.risk_score))}%"></i></div>
+      <div class="meter-labels" aria-hidden="true"><span>Looks okay</span><span>Be careful</span><span>Likely fake</span></div>
+      ${d.summary ? `<p class="summary">${esc(d.summary)}</p>` : ""}
+      ${d.confidence === "limited" ? `<p class="confidence">We couldn't check everything (for example the price or brand), so treat this result as a rough guide.</p>` : ""}
+
+      <h2>Why</h2>
+      <ul class="signals">
+        ${(d.signals || []).map((s) => `<li class="s-${esc(s.severity)}"><b>${esc(s.title)}</b><span>${esc(s.detail)}</span></li>`).join("")}
+      </ul>
+
+      ${facts.length ? `<h2>What we read from the screenshot</h2>
+      <dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+
+      ${(d.tips || []).length ? `<h2>Before you buy</h2><ul class="tips">${d.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+
+      <p class="disclaimer">${esc(d.disclaimer || "")}</p>
+      <button class="again" id="againBtn">Check another listing</button>`;
+    $("againBtn").addEventListener("click", reset);
+    result.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
+
+  function reset() {
+    chosen = null; fileInput.value = "";
+    ["pname", "pprice", "pdesc"].forEach((id) => ($(id).value = ""));
+    preview.classList.remove("show"); drop.style.display = "";
+    result.classList.remove("show"); formPanel.style.display = "";
+    refreshButton(); window.scrollTo({ top: 0 });
+  }
+
+  wake();
+</script>
+</body>
+</html>
