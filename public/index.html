@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SafeShop AI – Check a product before you buy</title>
+<meta name="description" content="Upload a screenshot of any online product listing and get a fake-risk estimate based on its text, image and price.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#12152b; --muted:#5b6078; --line:#e4e7f1;
+  --brand:#4f46e5; --brand2:#7c3aed; --soft:#eef0ff;
+  --green:#16a34a; --yellow:#ca8a04; --orange:#ea580c; --red:#dc2626; --darkred:#b91c1c; --grey:#64748b;
+  --shadow:0 10px 30px rgba(30,35,90,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c0e1c; --card:#151833; --text:#eef0ff; --muted:#a2a8c6; --line:#262a4d; --soft:#1d2147;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c0e1c; --card:#151833; --text:#eef0ff; --muted:#a2a8c6; --line:#262a4d; --soft:#1d2147;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 85%,transparent);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:62px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.02em}
+.logo i{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-style:normal;font-size:17px}
+.logo span em{font-style:normal;color:var(--brand)}
+.status{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--grey)}
+.dot.ok{background:var(--green);box-shadow:0 0 0 4px color-mix(in srgb,var(--green) 25%,transparent)}
+.dot.bad{background:var(--red)}
+.hero{padding:56px 0 28px;text-align:center}
+.pill{display:inline-block;padding:6px 14px;border-radius:99px;background:var(--soft);color:var(--brand);font-size:13px;font-weight:600}
+h1{font-size:clamp(32px,5.4vw,54px);line-height:1.08;letter-spacing:-.03em;margin:18px auto 14px;max-width:760px}
+h1 b{background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{max-width:620px;margin:0 auto;color:var(--muted);font-size:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.checker{margin:30px auto 0;max-width:760px;padding:22px;text-align:left}
+.tabs{display:inline-flex;background:var(--soft);padding:4px;border-radius:12px;margin-bottom:16px}
+.tab{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:600;padding:9px 18px;border-radius:9px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:34px 18px;text-align:center;cursor:pointer;transition:.15s;background:color-mix(in srgb,var(--soft) 50%,transparent)}
+.drop:hover,.drop.over{border-color:var(--brand);background:var(--soft)}
+.drop .ico{font-size:34px}
+.drop strong{display:block;margin-top:6px}
+.drop small{color:var(--muted)}
+.preview{position:relative;display:none;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#000}
+.preview img{display:block;width:100%;max-height:360px;object-fit:contain}
+.preview button{position:absolute;top:10px;right:10px;border:0;border-radius:99px;background:rgba(0,0,0,.65);color:#fff;padding:7px 13px;cursor:pointer;font:inherit;font-size:13px}
+.btn{width:100%;margin-top:16px;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:700;font-size:16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--brand),var(--brand2));transition:.15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.07)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.note{margin:12px 2px 0;font-size:13px;color:var(--muted);text-align:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+input,select,textarea{width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--brand) 55%,transparent);border-color:transparent}
+.field{margin-bottom:12px}
+.error{display:none;margin-top:14px;padding:13px 15px;border-radius:12px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);font-size:14px;font-weight:500}
+.loading{display:none;text-align:center;padding:36px 10px}
+.spinner{width:44px;height:44px;margin:0 auto 14px;border-radius:50%;border:4px solid var(--soft);border-top-color:var(--brand);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{margin:0;color:var(--muted);font-weight:500}
+#result{display:none;max-width:760px;margin:22px auto 0;text-align:left}
+.verdict{display:flex;gap:22px;align-items:center;padding:26px;flex-wrap:wrap}
+.gauge{position:relative;width:200px;flex:none;margin:0 auto}
+.gauge svg{display:block;width:100%}
+.gauge .num{position:absolute;left:0;right:0;bottom:2px;text-align:center}
+.gauge .num b{font-size:42px;letter-spacing:-.03em;line-height:1}
+.gauge .num span{display:block;font-size:12px;color:var(--muted)}
+.vtext{flex:1;min-width:230px}
+.vlabel{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+.vtext p{margin:0 0 12px;color:var(--muted)}
+.chip{display:inline-block;padding:4px 11px;border-radius:99px;background:var(--soft);font-size:12.5px;font-weight:600;margin-right:6px}
+.scale{display:flex;gap:4px;padding:0 26px 22px}
+.scale div{flex:1;text-align:center;font-size:11px;color:var(--muted);padding-top:7px;border-top:5px solid;border-radius:3px}
+.scale .on{color:var(--text);font-weight:700}
+.sec{padding:22px 26px;border-top:1px solid var(--line)}
+.sec h3{margin:0 0 12px;font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.fact{background:var(--soft);border-radius:12px;padding:11px 13px}
+.fact small{display:block;color:var(--muted);font-size:12px}
+.fact span{font-weight:600;word-break:break-word}
+.reasons{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.reasons li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--soft)}
+.ri{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700;margin-top:1px}
+.ri.risk{background:var(--orange)} .ri.ok{background:var(--green)} .ri.info{background:var(--grey)}
+.reasons small{display:block;margin-top:3px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.advice{margin:0;padding-left:20px;display:grid;gap:7px}
+.disc{padding:16px 26px 22px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+.again{display:block;margin:16px auto 0;border:1px solid var(--line);background:var(--card);color:var(--text);padding:11px 22px;border-radius:12px;font:inherit;font-weight:600;cursor:pointer}
+section.block{padding:54px 0 0}
+section.block h2{font-size:28px;letter-spacing:-.02em;margin:0 0 6px;text-align:center}
+section.block>.wrap>p.sub{text-align:center;color:var(--muted);margin:0 auto 26px;max-width:560px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.step{padding:22px}
+.step .n{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--soft);color:var(--brand);font-weight:800;margin-bottom:12px}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0;color:var(--muted);font-size:15px}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.tip{padding:18px 20px;font-size:15px}
+.tip b{display:block;margin-bottom:4px}
+footer{margin-top:64px;border-top:1px solid var(--line);padding:26px 0 40px;color:var(--muted);font-size:14px;text-align:center}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}.checker{padding:16px}.verdict,.sec{padding-left:18px;padding-right:18px}.scale{padding:0 18px 18px}.scale div{font-size:9.5px}.vlabel{font-size:24px}}
+</style>
+</head>
+<body>
+<header><div class="wrap nav">
+  <div class="logo"><i>🛡</i><span>SafeShop <em>AI</em></span></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Connecting…</span></div>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <span class="pill">Free fake-product risk checker</span>
+    <h1>Think before you buy. <b>Check the listing first.</b></h1>
+    <p class="lead">Upload a screenshot of any online product. SafeShop AI reads its text, image and price, and tells you how risky it looks.</p>
+
+    <div class="card checker" id="checker">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tabImg" aria-selected="true">Upload screenshot</button>
+        <button class="tab" role="tab" id="tabTxt" aria-selected="false">Type details</button>
+      </div>
+
+      <div id="paneImg">
+        <div class="drop" id="drop" tabindex="0">
+          <div class="ico">📷</div>
+          <strong>Drop a screenshot here, or tap to choose</strong>
+          <small>You can also paste with Ctrl+V · JPG, PNG or WebP</small>
+        </div>
+        <div class="preview" id="preview"><img id="previewImg" alt="Your screenshot"><button id="removeImg" type="button">Remove</button></div>
+        <input type="file" id="file" accept="image/*" hidden>
+      </div>
+
+      <div id="paneTxt" hidden>
+        <div class="field"><label for="title">Product title or description *</label><textarea id="title" rows="3" placeholder="e.g. Nike Air Max shoes for men, 7A quality, imported"></textarea></div>
+        <div class="grid2">
+          <div class="field"><label for="brand">Brand (optional)</label><input id="brand" placeholder="e.g. Nike"></div>
+          <div class="field"><label for="price">Price in ₹ *</label><input id="price" type="number" min="1" inputmode="numeric" placeholder="e.g. 799"></div>
+          <div class="field"><label for="category">Category</label>
+            <select id="category">
+              <option value="other">Not sure</option><option value="footwear">Footwear</option><option value="clothing">Clothing</option>
+              <option value="watch">Watch</option><option value="electronics">Electronics</option><option value="mobile_accessory">Mobile accessory</option>
+              <option value="bags">Bags</option><option value="eyewear">Sunglasses / eyewear</option><option value="beauty">Beauty</option>
+              <option value="jewellery">Jewellery</option><option value="toys">Toys</option><option value="home">Home</option><option value="grocery">Grocery</option>
+            </select></div>
+          <div class="field"><label for="platform">Where is it listed?</label><input id="platform" placeholder="e.g. Meesho, Amazon, Instagram"></div>
+        </div>
+        <div class="field"><label for="seller">Seller name (optional)</label><input id="seller" placeholder="e.g. Fashion Hub"></div>
+      </div>
+
+      <button class="btn" id="go" disabled>Check this product</button>
+      <p class="note">🔒 Please don’t upload personal details such as your name, phone number or address.</p>
+      <div class="error" id="error" role="alert"></div>
+      <div class="loading" id="loading"><div class="spinner"></div><p id="loadingText">Reading the listing…</p></div>
+    </div>
+
+    <div id="result" class="card" aria-live="polite"></div>
+  </div>
+
+  <section class="block"><div class="wrap">
+    <h2>How it works</h2><p class="sub">Three checks run in a few seconds.</p>
+    <div class="steps">
+      <div class="card step"><div class="n">1</div><h3>Reads the listing</h3><p>AI vision reads the title, brand, price, seller and the product photo from your screenshot.</p></div>
+      <div class="card step"><div class="n">2</div><h3>Runs the checks</h3><p>It looks for imitation wording, impossible prices, altered brand names and photos that don’t match the text.</p></div>
+      <div class="card step"><div class="n">3</div><h3>Gives a risk level</h3><p>You get a clear level from “Looks genuine” to “Likely fake”, with the reasons behind it.</p></div>
+    </div>
+  </div></section>
+
+  <section class="block"><div class="wrap">
+    <h2>Spot fakes yourself</h2><p class="sub">Habits that protect you on any shopping app.</p>
+    <div class="tips">
+      <div class="card tip"><b>“First copy”, “7A”, “master copy”</b>These words openly mean imitation, whatever the photo shows.</div>
+      <div class="card tip"><b>Price too good to be true</b>A branded watch or shoe at a tiny fraction of the usual price is rarely real.</div>
+      <div class="card tip"><b>Check the seller</b>Look for the brand’s official store or an authorised seller badge.</div>
+      <div class="card tip"><b>Read the 1–2 star reviews</b>Buyers often write “not original” or “quality is bad” there.</div>
+    </div>
+  </div></section>
+</main>
+
+<footer><div class="wrap">SafeShop AI is an awareness tool. It estimates risk from a listing and cannot prove that a product is fake or genuine.<br>Built as a student project.</div></footer>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const TIER = {
+    looks_genuine:{c:"#16a34a",msg:"No strong warning signs were found in this listing.",adv:["Still buy from the brand’s official store or an authorised seller when you can.","Check the return policy before you pay.","Read a few recent reviews."]},
+    be_careful:{c:"#ca8a04",msg:"A few things look off. It may be genuine, but verify before buying.",adv:["Compare the price with the brand’s official website.","Check the seller’s ratings and read the 1–2 star reviews.","Prefer a payment method that allows refunds."]},
+    suspicious:{c:"#ea580c",msg:"Several signals suggest this could be an imitation or misleading listing.",adv:["Don’t buy until you confirm the seller is official.","Search the exact product on the brand’s own website and compare price and photos.","Avoid paying in advance outside the app."]},
+    highly_suspicious:{c:"#dc2626",msg:"Multiple strong warning signs. This is very likely not what it claims to be.",adv:["We recommend not buying this.","If you already ordered, keep the listing screenshot and use the return option.","Report the listing on the shopping platform."]},
+    likely_fake:{c:"#b91c1c",msg:"The listing shows clear signs of being an imitation product.",adv:["Do not buy this product.","Report the listing to the platform so others are protected.","Buy only from the official brand store."]},
+    cannot_verify:{c:"#64748b",msg:"Nothing alarming was found, but we couldn’t confirm the price or product.",adv:["Try a clearer screenshot that shows the title and price.","Or use the “Type details” tab.","Compare with the brand’s official website."]},
+    not_enough_info:{c:"#64748b",msg:"We couldn’t read enough from this to judge it.",adv:["Upload a screenshot showing the product title, photo and price together.","Or enter the details in the “Type details” tab."]}
+  };
+  const SCALE=[["looks_genuine","Looks genuine"],["be_careful","Be careful"],["suspicious","Suspicious"],["highly_suspicious","Highly suspicious"],["likely_fake","Likely fake"]];
+
+  let imageData=null, mode="image", busy=false;
+
+  // ---------- backend status ----------
+  async function health(){
+    try{
+      const r=await fetch("/api/health",{cache:"no-store"}); const j=await r.json();
+      $("dot").className="dot "+(j.ai_configured?"ok":"bad");
+      $("statusText").textContent=j.ai_configured?"Checker ready":"AI key missing";
+    }catch(e){ $("dot").className="dot bad"; $("statusText").textContent="Checker offline"; }
+  }
+  health();
+
+  // ---------- tabs ----------
+  function setMode(m){
+    mode=m;
+    $("tabImg").setAttribute("aria-selected",m==="image"); $("tabTxt").setAttribute("aria-selected",m==="text");
+    $("paneImg").hidden=m!=="image"; $("paneTxt").hidden=m!=="text";
+    refresh(); hideError();
+  }
+  $("tabImg").onclick=()=>setMode("image"); $("tabTxt").onclick=()=>setMode("text");
+
+  function refresh(){
+    const ok = mode==="image" ? !!imageData : ($("title").value.trim().length>2 && Number($("price").value)>0);
+    $("go").disabled = !ok || busy;
+  }
+  ["title","price"].forEach(id=>$(id).addEventListener("input",refresh));
+
+  // ---------- image input ----------
+  const drop=$("drop"), file=$("file");
+  drop.onclick=()=>file.click();
+  drop.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();file.click();} };
+  file.onchange=()=>file.files[0]&&loadFile(file.files[0]);
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+  drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; f&&loadFile(f);});
+  document.addEventListener("paste",e=>{
+    if(mode!=="image") return;
+    const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith("image/"));
+    if(it) loadFile(it.getAsFile());
+  });
+  $("removeImg").onclick=()=>{imageData=null;file.value="";$("preview").style.display="none";drop.style.display="";refresh();hideResult();};
+
+  function loadFile(f){
+    hideError();
+    if(!f.type.startsWith("image/")){return showError("Please choose an image file (JPG, PNG or WebP).");}
+    if(f.size>15*1024*1024){return showError("That image is too large. Please use one under 15 MB.");}
+    const url=URL.createObjectURL(f); const img=new Image();
+    img.onload=()=>{
+      // shrink to max 1280px and convert to JPEG so uploads stay small and fast
+      const max=1280, s=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement("canvas"); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+      const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+      const dataUrl=c.toDataURL("image/jpeg",0.82);
+      imageData=dataUrl.split(",")[1];
+      $("previewImg").src=dataUrl; $("preview").style.display="block"; drop.style.display="none";
+      URL.revokeObjectURL(url); refresh(); hideResult();
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);showError("We couldn’t open that image. Try another one.");};
+    img.src=url;
+  }
+
+  // ---------- run check ----------
+  $("go").onclick=async()=>{
+    hideError(); hideResult(); busy=true; refresh();
+    $("loading").style.display="block"; $("go").style.display="none";
+    const msgs=["Reading the listing…","Checking the price…","Scanning for imitation wording…","Comparing image and text…"];
+    let i=0; $("loadingText").textContent=msgs[0];
+    const timer=setInterval(()=>{i=(i+1)%msgs.length;$("loadingText").textContent=msgs[i];},1800);
+    try{
+      const payload = mode==="image"
+        ? {mode:"image",image:imageData,mime:"image/jpeg"}
+        : {mode:"text",title:$("title").value,brand:$("brand").value,price:$("price").value,category:$("category").value,platform:$("platform").value,seller:$("seller").value,description:$("title").value};
+      const r=await fetch("/api/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      let j; try{ j=await r.json(); }catch{ throw new Error("The checker sent an unexpected reply. Please try again."); }
+      if(!r.ok) throw new Error(j.error||"Something went wrong. Please try again.");
+      render(j);
+    }catch(e){
+      showError(e.message==="Failed to fetch"?"Couldn’t reach the checker. Check your internet connection and try again.":e.message);
+    }finally{
+      clearInterval(timer); busy=false; $("loading").style.display="none"; $("go").style.display=""; refresh();
+    }
+  };
+
+  // ---------- render result ----------
+  const el=(tag,cls,text)=>{const n=document.createElement(tag); if(cls)n.className=cls; if(text!==undefined)n.textContent=text; return n;};
+  const inr=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+
+  function gauge(score,color,showNum){
+    const len=Math.PI*80; const off=len;
+    return `<svg viewBox="0 0 200 112" aria-hidden="true"><path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--line)" stroke-width="16" stroke-linecap="round"/><path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${len}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s ease"/></svg>`;
+  }
+
+  function render(d){
+    const box=$("result"); box.textContent="";
+    if(d.notProduct){
+      const s=el("div","sec"); s.style.borderTop="0";
+      s.append(el("h2","vlabel","This doesn’t look like a product listing"),el("p","",d.message||""));
+      box.append(s); box.style.display="block"; box.scrollIntoView({behavior:"smooth",block:"start"}); return;
+    }
+    const t=TIER[d.tier.id]||TIER.cannot_verify; const showNum=!["not_enough_info","cannot_verify"].includes(d.tier.id);
+
+    const v=el("div","verdict"); const g=el("div","gauge");
+    g.innerHTML=gauge(d.score,t.c,showNum);
+    const n=el("div","num"); n.innerHTML=showNum?`<b style="color:${t.c}">${d.score}</b><span>risk score / 100</span>`:`<b style="color:${t.c}">?</b><span>no score</span>`;
+    g.append(n);
+    const vt=el("div","vtext"); const lab=el("h2","vlabel",d.tier.label); lab.style.color=t.c;
+    vt.append(lab,el("p","",t.msg));
+    const chip=el("span","chip","Confidence: "+d.confidence); vt.append(chip);
+    v.append(g,vt); box.append(v);
+
+    if(showNum){
+      const sc=el("div","scale");
+      SCALE.forEach(([id,name])=>{const x=el("div",id===d.tier.id?"on":"",name); x.style.borderColor=TIER[id].c; x.style.opacity=id===d.tier.id?1:.5; sc.append(x);});
+      box.append(sc);
+    }
+
+    // what we read
+    const e=d.extracted||{}; const facts=[["Product",e.product_name],["Brand",e.brand],["Price",e.price?inr(e.price):null],["Usual genuine price",d.referencePrice?"from "+inr(d.referencePrice):null],["Seller",e.seller],["Platform",e.platform],["Discount",e.discount?Math.round(e.discount)+"% off":null]].filter(f=>f[1]);
+    if(facts.length){
+      const s=el("div","sec"); s.append(el("h3","","What we read")); const fg=el("div","facts");
+      facts.forEach(([k,val])=>{const f=el("div","fact"); f.append(el("small","",k),el("span","",String(val))); fg.append(f);});
+      s.append(fg); box.append(s);
+    }
+    // reasons
+    if(d.reasons?.length){
+      const s=el("div","sec"); s.append(el("h3","","Why this verdict")); const ul=el("ul","reasons");
+      d.reasons.forEach(r=>{
+        const li=el("li"); const ic=el("div","ri "+r.type, r.type==="risk"?"!":r.type==="ok"?"✓":"i");
+        const body=el("div"); body.append(el("div","",r.text));
+        if(r.type==="risk"){ body.append(el("small","", r.weight>=25?"Strong signal":r.weight>=10?"Moderate signal":"Minor signal")); }
+        li.append(ic,body); ul.append(li);
+      });
+      s.append(ul); box.append(s);
+    }
+    // advice
+    const a=el("div","sec"); a.append(el("h3","","What to do")); const al=el("ul","advice"); t.adv.forEach(x=>al.append(el("li","",x))); a.append(al); box.append(a);
+    box.append(el("div","disc","This is a risk estimate based only on what the listing shows. It cannot prove that a product is fake or genuine, and it never replaces checking the seller and the brand’s official website."));
+    const again=el("button","again","Check another product"); again.onclick=()=>{hideResult();$("checker").scrollIntoView({behavior:"smooth"});$("removeImg").click();}; box.append(again);
+
+    box.style.display="block";
+    requestAnimationFrame(()=>{ const p=g.querySelector("path:nth-of-type(2)"); if(p&&showNum){p.style.strokeDashoffset=Math.PI*80*(1-d.score/100);} });
+    box.scrollIntoView({behavior:"smooth",block:"start"});
+  }
+
+  function showError(m){const e=$("error");e.textContent=m;e.style.display="block";}
+  function hideError(){$("error").style.display="none";}
+  function hideResult(){$("result").style.display="none";}
+})();
+</script>
+</body>
+</html>
