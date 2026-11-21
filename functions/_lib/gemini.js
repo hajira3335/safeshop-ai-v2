@@ -63,47 +63,79 @@ export function clean(raw) {
 }
 
 export class GeminiError extends Error {
-  constructor(code) { super(code); this.code = code; }
+  constructor(code, detail = "") { super(code); this.code = code; this.detail = detail; }
+}
+
+const BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+// Calls one model. Returns {data} on success or {code, detail} on failure.
+async function callModel(env, model, base64, mime) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 28000);
+  try {
+    const res = await fetch(`${BASE}/models/${model}:generateContent`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mime, data: base64 } }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
+      }),
+    });
+    if (!res.ok) {
+      const body = (await res.text()).replace(/\s+/g, " ").slice(0, 220);
+      if ((res.status === 400 || res.status === 401 || res.status === 403) && /api key not valid|API_KEY_INVALID|API key expired/i.test(body)) throw new GeminiError("BAD_KEY", body);
+      return { code: res.status === 429 ? "QUOTA" : "UNAVAILABLE", detail: `HTTP ${res.status} ${body}` };
+    }
+    const data = await res.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const out = parts.filter((p) => !p.thought && p.text).map((p) => p.text).join("").replace(/```json|```/g, "").trim();
+    if (!out) return { code: "BAD_OUTPUT", detail: "empty reply" + (data?.promptFeedback?.blockReason ? " (blocked: " + data.promptFeedback.blockReason + ")" : "") };
+    try { return { data: clean(JSON.parse(out)) }; } catch { return { code: "BAD_OUTPUT", detail: "reply was not valid JSON" }; }
+  } catch (e) {
+    if (e instanceof GeminiError) throw e;
+    return { code: "UNAVAILABLE", detail: e && e.name === "AbortError" ? "timed out" : String((e && e.message) || e).slice(0, 160) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Asks Google which models this key can use, in case a model name was retired or renamed.
+async function discoverModels(env) {
+  try {
+    const res = await fetch(`${BASE}/models?pageSize=200`, { headers: { "x-goog-api-key": env.GEMINI_API_KEY } });
+    if (!res.ok) return [];
+    const j = await res.json();
+    return (j.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => String(m.name || "").replace(/^models\//, ""))
+      .filter((n) => /flash/.test(n) && !/image|tts|live|audio|embedding|robotics|computer/.test(n))
+      .sort((a, b) => (/latest/.test(b) ? 1 : 0) - (/latest/.test(a) ? 1 : 0) || (a < b ? 1 : -1));
+  } catch { return []; }
 }
 
 export async function extractFromImage(env, base64, mime) {
   if (!env.GEMINI_API_KEY) throw new GeminiError("NO_KEY");
-  const models = (env.GEMINI_MODELS || "gemini-2.5-flash,gemini-flash-latest,gemini-2.5-flash-lite")
+  const configured = (env.GEMINI_MODELS || "gemini-2.5-flash,gemini-flash-latest,gemini-2.5-flash-lite")
     .split(",").map((m) => m.trim()).filter(Boolean);
+  const tried = new Set();
+  const details = [];
   let lastCode = "UNAVAILABLE";
 
-  for (const model of models) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 28000);
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mime, data: base64 } }] }],
-          generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
-        }),
-      });
-      if (res.status === 400 || res.status === 401 || res.status === 403) {
-        const body = await res.text();
-        if (/api key|API_KEY|permission/i.test(body)) throw new GeminiError("BAD_KEY");
-        lastCode = "UNAVAILABLE";
-        continue;
-      }
-      if (res.status === 429) { lastCode = "QUOTA"; continue; }
-      if (!res.ok) { lastCode = "UNAVAILABLE"; continue; }
-      const data = await res.json();
-      const parts = data?.candidates?.[0]?.content?.parts || [];
-      const out = parts.filter((p) => !p.thought && p.text).map((p) => p.text).join("").replace(/```json|```/g, "").trim();
-      if (!out) { lastCode = "BAD_OUTPUT"; continue; }
-      try { return clean(JSON.parse(out)); } catch { lastCode = "BAD_OUTPUT"; continue; }
-    } catch (e) {
-      if (e instanceof GeminiError) throw e;
-      lastCode = "UNAVAILABLE";
-    } finally {
-      clearTimeout(timer);
+  const run = async (list) => {
+    for (const m of list) {
+      if (tried.has(m)) continue;
+      tried.add(m);
+      const r = await callModel(env, m, base64, mime);
+      if (r.data) return r.data;
+      lastCode = r.code;
+      details.push(`${m}: ${r.detail}`);
     }
-  }
-  throw new GeminiError(lastCode);
+    return null;
+  };
+
+  let out = await run(configured);
+  if (!out && lastCode !== "QUOTA") out = await run((await discoverModels(env)).slice(0, 4));
+  if (out) return out;
+  throw new GeminiError(lastCode, details.join(" | ").slice(0, 700));
 }
