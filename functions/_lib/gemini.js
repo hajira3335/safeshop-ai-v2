@@ -72,7 +72,7 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta";
 // Calls one model. Returns {data} on success or {code, detail} on failure.
 async function callModel(env, model, base64, mime) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 28000);
+  const timer = setTimeout(() => ctrl.abort(), 25000);
   try {
     const res = await fetch(`${BASE}/models/${model}:generateContent`, {
       method: "POST",
@@ -111,13 +111,17 @@ async function discoverModels(env) {
       .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
       .map((m) => String(m.name || "").replace(/^models\//, ""))
       .filter((n) => /flash/.test(n) && !/image|tts|live|audio|embedding|robotics|computer/.test(n))
-      .sort((a, b) => (/latest/.test(b) ? 1 : 0) - (/latest/.test(a) ? 1 : 0) || (a < b ? 1 : -1));
+      .sort((a, b) => {
+        const v = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+        const pen = (n) => (/latest/.test(n) ? 2 : 0) + (/lite/.test(n) ? 1 : 0);
+        return pen(a) - pen(b) || v(b) - v(a) || (a < b ? 1 : -1);
+      });
   } catch { return []; }
 }
 
 export async function extractFromImage(env, base64, mime) {
   if (!env.GEMINI_API_KEY) throw new GeminiError("NO_KEY");
-  const configured = (env.GEMINI_MODELS || "gemini-2.5-flash,gemini-flash-latest,gemini-2.5-flash-lite")
+  const configured = (env.GEMINI_MODELS || "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest")
     .split(",").map((m) => m.trim()).filter(Boolean);
   const tried = new Set();
   const details = [];
@@ -127,7 +131,11 @@ export async function extractFromImage(env, base64, mime) {
     for (const m of list) {
       if (tried.has(m)) continue;
       tried.add(m);
-      const r = await callModel(env, m, base64, mime);
+      let r = await callModel(env, m, base64, mime);
+      if (!r.data && /^HTTP 503/.test(r.detail || "")) {
+        await new Promise((res) => setTimeout(res, 1500));
+        r = await callModel(env, m, base64, mime);
+      }
       if (r.data) return r.data;
       lastCode = r.code;
       details.push(`${m}: ${r.detail}`);
