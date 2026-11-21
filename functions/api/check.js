@@ -41,7 +41,8 @@ export async function onRequestPost({ request, env }) {
     }
   } catch (e) {
     const code = e instanceof GeminiError ? e.code : "UNAVAILABLE";
-    return json({ error: MESSAGES[code] || MESSAGES.UNAVAILABLE, code }, code === "QUOTA" ? 429 : 502);
+    const detail = e instanceof GeminiError && e.detail ? " [Technical details: " + e.detail + "]" : "";
+    return json({ error: (MESSAGES[code] || MESSAGES.UNAVAILABLE) + detail, code }, code === "QUOTA" ? 429 : 502);
   }
 
   if (!extracted.is_product_listing) {
