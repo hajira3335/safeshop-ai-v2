@@ -7,7 +7,7 @@
 // Phrases that sellers use for imitation products.
 // Matching is whole-word and case-insensitive.
 export const STRONG_TERMS = [
-  "first copy", "1st copy", "master copy", "mirror copy", "a1 copy", "ab copy",
+  "first copy", "1st copy", "master copy", "master piece", "mirror copy", "a1 copy", "ab copy",
   "super copy", "hi copy", "high copy", "copy product", "7a", "7a quality",
   "7a grade", "aaa quality", "aaa grade", "replica", "clone", "dupe",
   "not original", "non original", "same as original", "100% copy", "duplicate product",
