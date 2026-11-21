@@ -22,7 +22,8 @@ const inr = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
 function findBrand(ex) {
   const first = (ex.brand_claimed || "").toLowerCase();
   const second = (ex.product_name || "").toLowerCase();
-  for (const hay of [first, second]) {
+  const third = (ex.misspelled_brand_of || "").toLowerCase();
+  for (const hay of [first, second, third]) {
     if (!hay) continue;
     for (const b of BRANDS) if (b.aliases.some((a) => hasTerm(hay, a))) return b;
   }
@@ -65,7 +66,9 @@ export function scoreListing(ex) {
   if (brandFloor) { refMin = brandFloor; refSource = "brand"; }
   if (gMin && gReliable && gMin > (refMin || 0)) { refMin = gMin; refSource = ex.price_estimate_confidence === "high" ? "ai_high" : "ai_medium"; }
 
-  if (price && refMin) {
+  if (price && price < 5) {
+    reasons.push({ type: "info", text: `The price (${inr(price)}) is unusually low for a product. It may have been misread (for example a price per gram), so the price check was skipped.`, weight: 0 });
+  } else if (price && refMin) {
     priceChecked = true;
     const r = price / refMin;
     let pts = r < 0.1 ? 55 : r < 0.25 ? 42 : r < 0.4 ? 32 : r < 0.55 ? 22 : r < 0.7 ? 12 : r < 0.85 ? 5 : 0;
@@ -87,7 +90,7 @@ export function scoreListing(ex) {
   else if (ex.discount_percent >= 70 && brand) add(8, "risk", `A ${Math.round(ex.discount_percent)}% discount on a known brand is unusual.`);
 
   // 4. Brand spelling / logo problems
-  if (ex.brand_spelling_issue) add(40, "risk", "The brand name looks misspelled or altered, a classic trick used by imitation sellers.");
+  if (ex.brand_spelling_issue) add(50, "risk", `The brand name looks like a deliberate misspelling of ${ex.misspelled_brand_of || "a well-known brand"}, a classic trick used by imitation sellers.`);
 
   // 5. Image and text disagree
   if (ex.image_text_mismatch) add(20, "risk", "The image does not match the product name or brand written in the listing.");
