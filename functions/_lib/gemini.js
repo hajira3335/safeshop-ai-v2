@@ -17,7 +17,7 @@ and return ONLY one JSON object with exactly these keys:
   "rating": number or null,
   "rating_count": number or null,
   "suspicious_phrases": array of exact phrases from the listing that point to a copy or imitation ("first copy","7A","master copy","inspired by", "same as original"...). Empty array if none.
-  "brand_spelling_issue": true if the brand name on the product or in the title looks misspelled or altered (e.g. "Adidaas", "Nikee"),
+  "misspelled_brand_of": the name of a WELL-KNOWN genuine brand (such as Nike, Adidas, Lay's) that the brand written on the product looks like a deliberate misspelling or knock-off spelling of (e.g. "Adidaas" -> "Adidas", "Nikee" -> "Nike"), otherwise null. Unfamiliar, local or small brands are NOT misspellings: use null for them,
   "image_text_mismatch": true if the product photo clearly shows a different product or brand than the title says,
   "text_quality_issues": true if the title or description has many spelling or grammar mistakes,
   "unrealistic_claims": array of strings for claims that cannot be true (e.g. "iPhone 15 for ₹999"). Empty array if none.
@@ -52,7 +52,8 @@ export function clean(raw) {
     rating: num(raw.rating),
     rating_count: num(raw.rating_count),
     suspicious_phrases: arr(raw.suspicious_phrases),
-    brand_spelling_issue: raw.brand_spelling_issue === true,
+    misspelled_brand_of: str(raw.misspelled_brand_of),
+    brand_spelling_issue: !!str(raw.misspelled_brand_of),
     image_text_mismatch: raw.image_text_mismatch === true,
     text_quality_issues: raw.text_quality_issues === true,
     unrealistic_claims: arr(raw.unrealistic_claims),
